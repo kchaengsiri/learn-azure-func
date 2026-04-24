@@ -17,6 +17,30 @@
   - Type `Azurite: Start` then press `Enter`
 - Press `F5` to start and run the azure function locally
 
+### Try
+
+```sh
+curl -X POST http://localhost:7071/api/json_payload \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "pet_weight_check",
+    "pet": {
+      "id": "P-0001",
+      "name": "Chubby"
+    },
+    "observation": {
+      "note": "Healthy",
+      "unit": "g",
+      "weight": 82.4,
+      "weight_at": "2026-04-24T09:32:19Z"
+    },
+    "staff": {
+      "id": "S-0089",
+      "name": "Game"
+    }
+  }'
+```
+
 ### Local Development Workflow Diagram
 
 ```mermaid
