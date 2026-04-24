@@ -19,6 +19,8 @@
 
 ### Try
 
+**Local**
+
 ```sh
 curl -X POST http://localhost:7071/api/json_payload \
   -H "Content-Type: application/json" \
@@ -38,6 +40,23 @@ curl -X POST http://localhost:7071/api/json_payload \
       "id": "S-0089",
       "name": "Game"
     }
+  }'
+```
+
+**Live**
+
+```sh
+curl -i -X POST "https://<YOUR_APP_NAME>.azurewebsites.net/api/json_payload?code=<YOUR_FUNCTION_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event": "pet_weight_check",
+    "pet": { "id": "P-CLOUD-01" },
+    "observation": {
+      "weight": 52.2,
+      "weight_at": "2026-04-24T10:15:00Z",
+      "note": "Testing live"
+    },
+    "staff": { "id": "S-007" }
   }'
 ```
 
@@ -165,6 +184,33 @@ az functionapp config appsettings set \
   --name game-learn-webhook
   --resource-group rg-learn-webhook
   --settings MY_API_KEY=12345
+```
+
+**Get the Host Key (Recommended)**
+
+```sh
+az functionapp keys list \
+  --name game-learn-webhook \
+  --resource-group rg-learn-webhook \
+  --query "functionKeys.default" \
+  --output tsv
+```
+
+**Get a Specific Function Key**
+
+```sh
+az functionapp function keys list \
+  --function-name json_payload \
+  --name game-learn-webhook \
+  --resource-group rg-learn-webhook \
+  --query "default" \
+  --output tsv
+```
+
+**Get a master key (Full Admin, Careful with this!)**
+
+```sh
+az functionapp keys list --query masterKey
 ```
 
 ### GitHub Actions Setup with OIDC (OpenID Connect)
