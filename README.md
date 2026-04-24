@@ -103,6 +103,7 @@ az functionapp delete \
 ```
 
 **List the Function App Service Plan**
+
 ```sh
 az functionapp plan list \
   --resource-group rg-learn-webhook \
@@ -110,6 +111,7 @@ az functionapp plan list \
 ```
 
 **Delete the Function App Service Plan**
+
 ```sh
 az functionapp plan delete \
   --name <YOUR_PLAN_NAME> \
@@ -133,12 +135,36 @@ func azure functionapp \
 ```
 
 **Set the Function App Environment Variables**
+
 ```sh
 az functionapp config appsettings set \
   --name game-learn-webhook
   --resource-group rg-learn-webhook
   --settings MY_API_KEY=12345
 ```
+
+### GitHub Actions Setup with OIDC (OpenID Connect)
+
+- Create a Workflow File: `.github/workflows/deploy.yml`
+- Get Subscription ID
+
+  ```sh
+  az account show --query id -o tsv
+  ```
+
+- Create a Service Principal with "Contributor" role to GitHub
+
+  ```sh
+  az ad sp create-for-rbac \
+    --name "github-actions-game" \
+    --role contributor \
+    --scopes /subscriptions/<SUB_ID>/resourceGroups/rg-learn-webhook \
+    --json-auth
+  ```
+
+- Copy the JSON output.
+- Go to your Repo > **Settings** > **Secrets and variables** > **Actions** > **New repository secret**.
+- Enter `AZURE_CREDENTIALS` to the Name and paste the JSON to the Secret.
 
 ---
 
@@ -151,5 +177,6 @@ az functionapp config appsettings set \
 
 ### Documents:
 
-- [Azure CLI](https://aka.ms/cli_ref)
+- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/reference-index?view=azure-cli-latest)
 - [Develop Azure Functions by using Visual Studio Code](https://learn.microsoft.com/en-us/azure/azure-functions/functions-develop-vs-code?tabs=node-v4%2Cpython-v2%2Cisolated-process%2Cquick-create&pivots=programming-language-python)
+- [Create an Azure service principal with Azure CLI](https://learn.microsoft.com/en-us/cli/azure/azure-cli-sp-tutorial-1?view=azure-cli-latest)
