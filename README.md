@@ -47,6 +47,8 @@ graph LR
 └── function_app.py       # Main Entry Point: Azure Functions V2 programming model
 ```
 
+---
+
 ### Azure CLI exmaples
 
 **Login via CLI**
@@ -86,7 +88,7 @@ az functionapp create \
   --name game-learn-webhook \
   --resource-group rg-learn-webhook \
   --storage-account gamelearnwebhook \
-  --flex-consumption-location southeastasia \
+  --flexconsumption-location southeastasia \
   --runtime python \
   --runtime-version 3.13 \
   --instance-memory 2048
@@ -100,11 +102,45 @@ az functionapp delete \
   --resource-group rg-learn-webhook
 ```
 
-**Deploy your Function App**
+**List the Function App Service Plan**
+```sh
+az functionapp plan list \
+  --resource-group rg-learn-webhook \
+  --output table
+```
+
+**Delete the Function App Service Plan**
+```sh
+az functionapp plan delete \
+  --name <YOUR_PLAN_NAME> \
+  --resource-group rg-learn-webhook \
+  --yes
+```
+
+**Deploy the Function App**
 
 ```sh
-func azure functionapp publish game-learn-webhook
+func azure functionapp \
+  publish game-learn-webhook \
+  --build remote
 ```
+
+**Stream the Function App Logs**
+
+```sh
+func azure functionapp \
+  logstream game-learn-webhook
+```
+
+**Set the Function App Environment Variables**
+```sh
+az functionapp config appsettings set \
+  --name game-learn-webhook
+  --resource-group rg-learn-webhook
+  --settings MY_API_KEY=12345
+```
+
+---
 
 ### Definitions
 
@@ -115,4 +151,5 @@ func azure functionapp publish game-learn-webhook
 
 ### Documents:
 
+- [Azure CLI](https://aka.ms/cli_ref)
 - [Develop Azure Functions by using Visual Studio Code](https://learn.microsoft.com/en-us/azure/azure-functions/functions-develop-vs-code?tabs=node-v4%2Cpython-v2%2Cisolated-process%2Cquick-create&pivots=programming-language-python)
