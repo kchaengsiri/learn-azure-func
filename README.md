@@ -17,6 +17,22 @@
   - Type `Azurite: Start` then press `Enter`
 - Press `F5` to start and run the azure function locally
 
+### Local Development Workflow Diagram
+
+```mermaid
+graph LR
+    subgraph "Your Machine (Local)"
+        A[function_app.py] -- Triggers/Bindings --> B(Azurite Emulator)
+        B --> C[(Local Folders)]
+        C --- C1["__blobstorage__"]
+        C --- C2["__queuestorage__"]
+    end
+
+    subgraph "VS Code Tools"
+        D[Azure Functions Core Tools] -- Runs --> A
+    end
+```
+
 ### Project Structure
 
 ```txt
