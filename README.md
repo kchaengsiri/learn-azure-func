@@ -49,57 +49,62 @@ graph LR
 
 ### Azure CLI exmaples
 
-- Login via CLI
+**Login via CLI**
 
-    ```sh
-    az login
-    ```
+```sh
+az login
+```
 
-- Create Resource Group
+**Create Resource Group**
 
-    ```
-    az group create --name rg-learn-webhook --location southeastasia
-    ```
+```sh
+az group create --name rg-learn-webhook --location southeastasia
+```
 
-- Delete Resource Group
+**Delete Resource Group**
 
-    ```
-    az group delete --name rg-learn-webhook
-    ```
+```sh
+az group delete --name rg-learn-webhook
+```
 
-- Create a Storage Account (Real version of Azurite)
+**Create a Storage Account (Real version of Azurite)**
 
-    _Note: `--name` must be globally unique, lowercase, no symbols._
+_Note: `--name` must be globally unique, lowercase, no symbols._
 
-    ```
-    az storage account create \
-      --name gamelearnwebhook \
-      --location southeastasia \
-      --resource-group rg-learn-webhook \
-      --sku Standard_LRS
-    ```
+```sh
+az storage account create \
+  --name gamelearnwebhook \
+  --location southeastasia \
+  --resource-group rg-learn-webhook \
+  --sku Standard_LRS
+```
 
-- Create the Function App
+**Create the Function App**
 
-    _Note: `--os-type Linux` is required for Python_
+```sh
+az functionapp create \
+  --name game-learn-webhook \
+  --resource-group rg-learn-webhook \
+  --storage-account gamelearnwebhook \
+  --flex-consumption-location southeastasia \
+  --runtime python \
+  --runtime-version 3.13 \
+  --instance-memory 2048
+```
 
-    ```
-    az functionapp create \
-      --resource-group rg-learn-webhook \
-      --storage-account gamelearnwebhook \
-      --consumption-plan-location southeastasia \
-      --runtime python \
-      --runtime-version 3.13 \
-      --functions-version 4 \
-      --name game-learn-webhook \
-      --os-type Linux
-    ```
+**Delete the Function App**
 
-- Deploy your Function App
+```sh
+az functionapp delete \
+  --name func-learn-game \
+  --resource-group rg-learn-webhook
+```
 
-    ```
-    func azure functionapp publish game-learn-webhook
-    ```
+**Deploy your Function App**
+
+```sh
+func azure functionapp publish game-learn-webhook
+```
 
 ### Definitions
 
