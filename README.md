@@ -213,6 +213,87 @@ az functionapp function keys list \
 az functionapp keys list --query masterKey
 ```
 
+---
+
+### Cosmos DB
+
+0. **Register the Cosmos DB provider** [OPTIONAL]
+
+    ```sh
+    az provider register --namespace Microsoft.DocumentDB
+    ```
+
+    Note: Registration can take 1–2 minutes. You can check the status with:
+
+    ```sh
+    az provider show -n Microsoft.DocumentDB --query registrationState
+    ```
+
+1. Create the Cosmos DB Account
+
+    ```sh
+    az cosmosdb create \
+      --name db-learn-webhook \
+      --resource-group rg-learn-webhook \
+      --locations regionName="Southeast Asia" failoverPriority=0 isZoneRedundant=False \
+      --capabilities EnableServerless
+    ```
+
+    Note: Cosmos DB provisioning usually takes 5–10 minutes, you can check the progress with this command:
+
+    ```sh
+    az cosmosdb show \
+      --name db-learn-webhook \
+      --resource-group rg-learn-webhook \
+      --query "provisioningState"
+    ```
+
+2. Create the Database
+
+    ```sh
+    az cosmosdb sql database create \
+      --name ObservationLog \
+      --account-name db-learn-webhook \
+      --resource-group rg-learn-webhook
+    ```
+
+3. Create the Container with /pet/id as the Partition Key. This ensures all records for the same pet stay on the same physical partition for speed.
+
+    ```sh
+    az cosmosdb sql container create \
+      --name ObservationContainer \
+      --account-name db-learn-webhook \
+      --resource-group rg-learn-webhook \
+      --database-name ObservationLog \
+      --partition-key-path "/pet/id"
+    ```
+
+4. Get the connection string:
+
+    ```sh
+    az cosmosdb keys list \
+      --name db-learn-webhook \
+      --resource-group rg-learn-webhook \
+      --type connection-strings \
+      --query "connectionStrings[0].connectionString" \
+      -o tsv
+    ```
+
+5. Add it to local.settings.json:
+
+    ```json
+    {
+      "IsEncrypted": false,
+      "Values": {
+        "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+        "CosmosDbConnectionString": "<PASTE_YOUR_CONNECTION_STRING_HERE>",
+        "FUNCTIONS_WORKER_RUNTIME": "python"
+      }
+    }
+    ```
+
+---
+
 ### GitHub Actions Setup with OIDC (OpenID Connect)
 
 - Create a Workflow File: `.github/workflows/deploy.yml`

@@ -1,18 +1,33 @@
 import azure.functions as func
+import json
 import logging
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from typing import Optional
 from datetime import datetime
+
+
+# class DateTimeEncoder(json.JSONEncoder):
+#     def default(self, obj):
+#         if isinstance(obj, datetime):
+#             # Formats to ISO 8601 (e.g., 2026-04-26T12:00:00Z)
+#             return obj.isoformat().replace("+00:00", "Z")
+#         return super().default(obj)
 
 
 class Pet(BaseModel):
     id: str
     name: Optional[str] = None
 
+    # Allows additional fields like 'species' and 'sex' to be preserved
+    model_config = ConfigDict(extra="allow")
+
 
 class Staff(BaseModel):
     id: str
     name: Optional[str] = None
+
+    # Allows additional fields
+    model_config = ConfigDict(extra="allow")
 
 
 class Observation(BaseModel):
@@ -20,6 +35,9 @@ class Observation(BaseModel):
     unit: Optional[str] = "g"
     weight: float
     weight_at: datetime
+
+    # Allows additional fields
+    model_config = ConfigDict(extra="allow")
 
     @field_validator("weight_at", mode="before")
     @classmethod
@@ -39,12 +57,15 @@ class Observation(BaseModel):
         return v
 
 
-class WebhookData(BaseModel):
+class WebhookPayload(BaseModel):
     # Maps "event" from JSON to "event_type"
     event_type: str = Field(..., alias="event")
     pet: Pet
     observation: Observation
     staff: Staff
+
+    # Allows additional fields
+    model_config = ConfigDict(extra="allow")
 
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
@@ -72,7 +93,16 @@ def webhook_test(req: func.HttpRequest) -> func.HttpResponse:
     methods=["POST"],
     auth_level=func.AuthLevel.FUNCTION,
 )
-def json_payload(req: func.HttpRequest) -> func.HttpResponse:
+@app.cosmos_db_output(
+    arg_name="outputDocument",
+    database_name="ObservationLog",
+    container_name="ObservationContainer",
+    connection="CosmosDbConnectionString",
+)
+def json_payload(
+    req: func.HttpRequest,
+    outputDocument: func.Out[func.Document],
+) -> func.HttpResponse:
     logging.info("json_payload triggered.")
 
     # Check Content-Type (Professional touch)
@@ -88,11 +118,23 @@ def json_payload(req: func.HttpRequest) -> func.HttpResponse:
         payload = req.get_json()
         logging.info(f"Payload: {payload}")
         # Validate payload
-        data = WebhookData.model_validate(payload)
+        data = WebhookPayload.model_validate(payload)
         logging.info(f"Validated: {data}")
 
+        # Convert Pydantic model to a standard dictionary
+        document = data.model_dump(mode="json")
+
+        # Cosmos DB requires a unique "id" at the root of every document
+        # We'll combine the pet ID and a timestamp to make it unique
+        document["id"] = f"{data.pet.id}-{int(datetime.now().timestamp())}"
+
+        # Send the document to the Output Binding
+        outputDocument.set(func.Document.from_dict(document))
+
         return func.HttpResponse(
-            body=data.model_dump_json(),
+            # body=data.model_dump_json(),
+            # body=json.dumps(document, indent=2, sort_keys=True, cls=DateTimeEncoder),
+            body=json.dumps(document, indent=2, sort_keys=True),
             status_code=200,
             mimetype="application/json",
         )
