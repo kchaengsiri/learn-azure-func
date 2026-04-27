@@ -352,6 +352,15 @@ az servicebus namespace authorization-rule keys list \
   --query primaryConnectionString -o tsv
 ```
 
+**Create a Subscription to the topic**
+```sh
+az servicebus topic subscription create \
+  --name AllEventsSubscription \
+  --resource-group rg-learn-webhook \
+  --namespace-name sb-game-learn-webhook \
+  --topic-name learn-webhook-topic
+```
+
 ---
 
 ### GitHub Actions Setup with OIDC (OpenID Connect)
