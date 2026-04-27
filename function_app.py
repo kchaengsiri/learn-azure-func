@@ -113,7 +113,7 @@ def valid_payload(req: func.HttpRequest):
 )
 @app.queue_output(
     arg_name="queue",
-    queue_name="weight-checks-queue",
+    queue_name="learn-webhook-queue",
     connection="AzureWebJobsStorage",
 )
 def queue_payload(
@@ -141,6 +141,55 @@ def queue_payload(
 
     # Send the document to the Queue
     queue.set(json_doc)
+
+    return func.HttpResponse(
+        body=json_doc,
+        status_code=200,
+        mimetype="application/json",
+    )
+
+
+@app.route(
+    route="bus_payload",
+    methods=["POST"],
+    auth_level=func.AuthLevel.FUNCTION,
+)
+@app.cosmos_db_output(
+    arg_name="cosmos",
+    database_name="ObservationLog",
+    container_name="ObservationContainer",
+    connection="CosmosDbConnectionString",
+)
+@app.service_bus_topic_output(
+    arg_name="bus",
+    topic_name="learn-webhook-topic",
+    connection="ServiceBusConnection",
+)
+def bus_payload(
+    req: func.HttpRequest,
+    cosmos: func.Out[func.Document],
+    bus: func.Out[str],
+) -> func.HttpResponse:
+    logging.info("bus_payload triggered.")
+
+    # Check Content-Type
+    if not valid_content_type(req):
+        return func.HttpResponse(
+            body="Unsupported Media Type: expected application/json",
+            status_code=415,
+        )
+
+    err, document = valid_payload(req)
+    if err:
+        return func.HttpResponse(body=err, status_code=400)
+
+    json_doc = json.dumps(document, indent=2, sort_keys=True)
+
+    # Store the document to the Cosmos DB
+    cosmos.set(func.Document.from_json(json_doc))
+
+    # Send the document to the Service Bus
+    bus.set(json_doc)
 
     return func.HttpResponse(
         body=json_doc,

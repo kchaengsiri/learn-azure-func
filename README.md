@@ -296,13 +296,63 @@ az functionapp keys list --query masterKey
 
 ### Storage Queues (The Simple Route)
 
+Use the Azure Portal or Microsoft Azure Storage Explorer to see the message.
+
+**List your Storage Accounts** (to find the right name)
+
+```sh
+az storage account list \
+  --resource-group rg-learn-webhook
+  --query "[].name" \
+  -o tsv
+```
+
 **Create the Queue**
 
 ```sh
 az storage queue create \
   --name learn-webhook-queue \
-  --account-name db-learn-webhook
+  --account-name gamelearnwebhook
 ```
+
+---
+
+### Service Bus (The Enterprise Route)
+
+Use the Service Bus Explorer directly inside the Azure Portal (under the Topic menu) to "Peek" at the messages.
+
+**Create the Namespace** (must be unique)
+
+_NOTE: SKU: 'Standard' is required for Topics/Subscriptions_
+
+```sh
+az servicebus namespace create \
+  --name sb-game-learn-webhook \
+  --resource-group rg-learn-webhook \
+  --location "Southeast Asia" \
+  --sku Standard
+```
+
+**Create a Topic (for Pub/Sub)**
+
+```sh
+az servicebus topic create \
+  --name learn-webhook-topic \
+  --resource-group rg-learn-webhook \
+  --namespace-name sb-game-learn-webhook
+```
+
+**Get the Connection String**
+
+```sh
+az servicebus namespace authorization-rule keys list \
+  --resource-group rg-learn-webhook \
+  --namespace-name sb-game-learn-webhook \
+  --name RootManageSharedAccessKey \
+  --query primaryConnectionString -o tsv
+```
+
+---
 
 ### GitHub Actions Setup with OIDC (OpenID Connect)
 
