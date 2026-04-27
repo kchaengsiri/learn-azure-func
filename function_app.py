@@ -6,14 +6,6 @@ from typing import Optional
 from datetime import datetime
 
 
-# class DateTimeEncoder(json.JSONEncoder):
-#     def default(self, obj):
-#         if isinstance(obj, datetime):
-#             # Formats to ISO 8601 (e.g., 2026-04-26T12:00:00Z)
-#             return obj.isoformat().replace("+00:00", "Z")
-#         return super().default(obj)
-
-
 class Pet(BaseModel):
     id: str
     name: Optional[str] = None
@@ -71,84 +63,87 @@ class WebhookPayload(BaseModel):
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
 
+def valid_content_type(req: func.HttpRequest):
+    # Check Content-Type
+    content_type = req.headers.get("Content-Type", "")
+    logging.debug(f"valid_content_type: {content_type}")
+    if "application/json" in content_type.lower():
+        return True
+    return False
+
+
+def valid_payload(req: func.HttpRequest):
+    try:
+        # Extract JSON paylaod
+        payload = req.get_json()
+        logging.debug(f"valid_payload::payload: {payload}")
+        # Validate payload
+        data = WebhookPayload.model_validate(payload)
+        logging.debug(f"valid_payload::data: {data}")
+        # Convert Pydantic model to a standard dictionary
+        document = data.model_dump(mode="json")
+        logging.debug(f"valid_payload::document: {document}")
+
+        # Cosmos DB requires a unique "id" at the root of every document
+        # We'll combine the pet ID and a timestamp to make it unique
+        document["id"] = f"{data.pet.id}-{int(datetime.now().timestamp())}"
+        logging.debug(f"valid_payload::document[id]: {document['id']}")
+
+        return None, document
+
+    except ValidationError as e:
+        # e.json() returns a string, but you can also use e.errors() for a list
+        logging.error(f"Validation error: {e.json()}")
+        return e.json(), None
+    except ValueError as e:
+        logging.error(f"Value error: {e.json()}")
+        return "Invalid JSON format", None
+
+
 @app.route(
-    route="webhook_test",
-    methods=["GET"],
-)
-def webhook_test(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info("webhook_test triggered")
-
-    name = req.params.get("name")
-    if name:
-        return func.HttpResponse(f"Hello, {name}.")
-    else:
-        return func.HttpResponse(
-            body="Pass a name in the query string for a personalized response.",
-            status_code=200,
-        )
-
-
-@app.route(
-    route="json_payload",
+    route="queue_payload",
     methods=["POST"],
     auth_level=func.AuthLevel.FUNCTION,
 )
 @app.cosmos_db_output(
-    arg_name="outputDocument",
+    arg_name="cosmos",
     database_name="ObservationLog",
     container_name="ObservationContainer",
     connection="CosmosDbConnectionString",
 )
-def json_payload(
+@app.queue_output(
+    arg_name="queue",
+    queue_name="weight-checks-queue",
+    connection="AzureWebJobsStorage",
+)
+def queue_payload(
     req: func.HttpRequest,
-    outputDocument: func.Out[func.Document],
+    cosmos: func.Out[func.Document],
+    queue: func.Out[str],
 ) -> func.HttpResponse:
-    logging.info("json_payload triggered.")
+    logging.info("queue_payload triggered.")
 
-    # Check Content-Type (Professional touch)
-    content_type = req.headers.get("Content-Type", "")
-    if "application/json" not in content_type.lower():
+    # Check Content-Type
+    if not valid_content_type(req):
         return func.HttpResponse(
             body="Unsupported Media Type: expected application/json",
             status_code=415,
         )
 
-    try:
-        # Extract JSON paylaod
-        payload = req.get_json()
-        logging.info(f"Payload: {payload}")
-        # Validate payload
-        data = WebhookPayload.model_validate(payload)
-        logging.info(f"Validated: {data}")
+    err, document = valid_payload(req)
+    if err:
+        return func.HttpResponse(body=err, status_code=400)
 
-        # Convert Pydantic model to a standard dictionary
-        document = data.model_dump(mode="json")
+    json_doc = json.dumps(document, indent=2, sort_keys=True)
 
-        # Cosmos DB requires a unique "id" at the root of every document
-        # We'll combine the pet ID and a timestamp to make it unique
-        document["id"] = f"{data.pet.id}-{int(datetime.now().timestamp())}"
+    # Store the document to the Cosmos DB
+    cosmos.set(func.Document.from_json(json_doc))
 
-        # Send the document to the Output Binding
-        outputDocument.set(func.Document.from_dict(document))
+    # Send the document to the Queue
+    queue.set(json_doc)
 
-        return func.HttpResponse(
-            # body=data.model_dump_json(),
-            # body=json.dumps(document, indent=2, sort_keys=True, cls=DateTimeEncoder),
-            body=json.dumps(document, indent=2, sort_keys=True),
-            status_code=200,
-            mimetype="application/json",
-        )
-
-    except ValidationError as e:
-        # e.json() returns a string, but you can also use e.errors() for a list
-        logging.error(f"Validation error: {e.errors()}")
-        return func.HttpResponse(
-            body=e.json(),
-            status_code=422,
-            mimetype="application/json",
-        )
-    except ValueError:
-        return func.HttpResponse(
-            body="Invalid JSON format",
-            status_code=400,
-        )
+    return func.HttpResponse(
+        body=json_doc,
+        status_code=200,
+        mimetype="application/json",
+    )
