@@ -6,6 +6,7 @@ from typing import Optional
 from datetime import datetime
 
 
+# Models
 class Pet(BaseModel):
     id: str
     name: Optional[str] = None
@@ -57,9 +58,13 @@ class WebhookPayload(BaseModel):
     staff: Staff
 
     # Allows additional fields
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(
+        extra="allow",
+        populate_by_name=True,  # This allows both 'event' and 'event_type' to work
+    )
 
 
+# Init Function App
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
 
@@ -100,6 +105,23 @@ def valid_payload(req: func.HttpRequest):
         return "Invalid JSON format", None
 
 
+def verify_request(req):
+    # Check Content-Type
+    if not valid_content_type(req):
+        return func.HttpResponse(
+            body="Unsupported Media Type: expected application/json",
+            status_code=415,
+        )
+
+    # Check Body Payload
+    err, document = valid_payload(req)
+    if err:
+        return func.HttpResponse(body=err, status_code=400)
+
+    return json.dumps(document, indent=2, sort_keys=True)
+
+
+# Queue Storage
 @app.route(
     route="queue_payload",
     methods=["POST"],
@@ -123,18 +145,7 @@ def queue_payload(
 ) -> func.HttpResponse:
     logging.info("queue_payload triggered.")
 
-    # Check Content-Type
-    if not valid_content_type(req):
-        return func.HttpResponse(
-            body="Unsupported Media Type: expected application/json",
-            status_code=415,
-        )
-
-    err, document = valid_payload(req)
-    if err:
-        return func.HttpResponse(body=err, status_code=400)
-
-    json_doc = json.dumps(document, indent=2, sort_keys=True)
+    json_doc = verify_request(req)
 
     # Store the document to the Cosmos DB
     cosmos.set(func.Document.from_json(json_doc))
@@ -149,6 +160,7 @@ def queue_payload(
     )
 
 
+# Service Bus
 @app.route(
     route="bus_payload",
     methods=["POST"],
@@ -172,18 +184,7 @@ def bus_payload(
 ) -> func.HttpResponse:
     logging.info("bus_payload triggered.")
 
-    # Check Content-Type
-    if not valid_content_type(req):
-        return func.HttpResponse(
-            body="Unsupported Media Type: expected application/json",
-            status_code=415,
-        )
-
-    err, document = valid_payload(req)
-    if err:
-        return func.HttpResponse(body=err, status_code=400)
-
-    json_doc = json.dumps(document, indent=2, sort_keys=True)
+    json_doc = verify_request(req)
 
     # Store the document to the Cosmos DB
     cosmos.set(func.Document.from_json(json_doc))
@@ -196,3 +197,43 @@ def bus_payload(
         status_code=200,
         mimetype="application/json",
     )
+
+
+# Queue Consumer
+@app.queue_trigger(
+    arg_name="msg",
+    queue_name="learn-webhook-queue",
+    connection="AzureWebJobsStorage",
+)
+def queue_consumer(msg: func.QueueMessage):
+    # Get the message body (the JSON string)
+    message_body = msg.get_body().decode("utf-8")
+    logging.info(f"Storage Queue Consumer received: {message_body}")
+
+    # Step: Parse the JSON back into your Pydantic model
+    data = WebhookPayload.model_validate_json(message_body)
+
+    # Example Business Logic: Check bird weight
+    if data.observation.weight < 20:
+        logging.warning(
+            f"ALERT: {data.pet.name} (ID: {data.pet.id}) has a critically low weight!"
+        )
+
+
+# Bus Consumer
+@app.service_bus_topic_trigger(
+    arg_name="msg",
+    topic_name="learn-webhook-topic",
+    subscription_name="AllEventsSubscription",
+    connection="ServiceBusConnection",
+)
+def service_bus_consumer(msg: func.ServiceBusMessage):
+    # Service Bus handles strings directly
+    message_body = str(msg.get_body().decode("utf-8"))
+    logging.info(f"Service Bus Consumer received: {message_body}")
+
+    # Step: Parse the JSON back into your Pydantic model
+    data = WebhookPayload.model_validate_json(message_body)
+
+    # Logic: Perform a different task (e.g., prep for a report)
+    logging.info(f"Processing report data for pet: {data.pet.name}")
