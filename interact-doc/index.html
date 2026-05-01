@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure Messaging: Donation Workflow</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f9;
+            --primary-color: #0078d4;
+            --secondary-color: #005a9e;
+            --accent-color: #00a2ed;
+            --text-color: #323130;
+            --white: #ffffff;
+            --grey: #edebe9;
+            --green: #107c10;
+            --purple: #5c2d91;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: var(--white);
+            width: 100%;
+            padding: 2rem 0;
+            text-align: center;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+
+        h1 { margin: 0; font-weight: 300; }
+        p.subtitle { margin-top: 0.5rem; opacity: 0.9; }
+
+        .container {
+            width: 95%;
+            max-width: 1200px;
+            background: var(--white);
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-bottom: 3rem;
+        }
+
+        .tabs {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid var(--grey);
+            padding-bottom: 1rem;
+        }
+
+        .tab-btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.2s;
+            border-radius: 4px;
+        }
+
+        .tab-btn.active {
+            background-color: var(--primary-color);
+            color: var(--white);
+        }
+
+        .view-content {
+            display: none;
+        }
+
+        .view-content.active {
+            display: block;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Simulation Area */
+        .simulation-area {
+            height: 500px;
+            background: #fafafa;
+            border: 1px dashed #ccc;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .label {
+            position: absolute;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #666;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        /* Node Elements */
+        .node {
+            position: absolute;
+            width: 110px;
+            height: 80px;
+            background: var(--white);
+            border: 2px solid var(--primary-color);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.85rem;
+            text-align: center;
+            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .producer-node {
+            left: 50px;
+            top: 210px;
+            border-color: var(--primary-color);
+            background-color: #e3f2fd;
+        }
+
+        /* Middle Columns */
+        .column-container {
+            position: absolute;
+            top: 50px;
+            bottom: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .consumer-node {
+            width: 120px;
+            height: 80px;
+            border-color: var(--purple);
+            background-color: #f3e5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            border: 2px solid var(--purple);
+            border-radius: 8px;
+            font-weight: bold;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            z-index: 10;
+        }
+
+        /* Queue View Specifics */
+        .queue-center {
+            position: absolute;
+            left: 45%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 220px;
+            height: 380px;
+            border: 3px solid var(--accent-color);
+            background: #e1f5fe;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            align-items: center;
+            border-radius: 12px;
+            padding: 10px;
+        }
+
+        .mini-queue {
+            width: 90%;
+            height: 60px;
+            border: 1px solid #01579b;
+            background: var(--white);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            padding: 0 5px;
+            gap: 5px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Middle Column (Queues/Topics/Orchestrator) */
+        .middle-content {
+            position: absolute;
+            left: 40%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+        }
+
+        /* Consumers Column */
+        .consumer-list {
+            position: absolute;
+            left: 85%;
+            top: 20px;
+            bottom: 20px;
+            width: 130px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* Service Bus Specifics */
+        .topic-circle {
+            width: 130px;
+            height: 130px;
+            border: 4px solid var(--accent-color);
+            border-radius: 50%;
+            background: #e3f2fd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .sb-subs-column {
+            position: absolute;
+            left: 65%;
+            top: 40px;
+            bottom: 40px;
+            width: 150px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .sb-sub-item {
+            height: 60px;
+            border: 2px solid var(--accent-color);
+            background: #f1f8ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            position: relative;
+        }
+
+        /* Advanced View Specifics */
+        .stage-box {
+            border: 1px dashed #bbb;
+            background: rgba(0,0,0,0.02);
+            padding: 20px 10px 10px 10px;
+            border-radius: 8px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .stage-box::before {
+            content: attr(data-label);
+            position: absolute;
+            top: 2px;
+            left: 5px;
+            font-size: 0.6rem;
+            font-weight: bold;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        .final-aggregator {
+            position: absolute;
+            right: 50px;
+            top: 210px;
+            border-color: var(--accent-color);
+            background-color: #e1f5fe;
+        }
+
+        /* Message */
+        .message {
+            width: 60px;
+            height: 35px;
+            background: var(--primary-color);
+            color: white;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            position: absolute;
+            z-index: 20;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            font-weight: bold;
+            pointer-events: none;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border: 2px solid var(--primary-color);
+            background: white;
+            color: var(--primary-color);
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .btn:hover { background: var(--primary-color); color: white; }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 2rem;
+        }
+
+        .comparison-table th, .comparison-table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--grey);
+            text-align: left;
+        }
+
+        .comparison-table th { background-color: var(--grey); }
+
+        .card {
+            background: #fff;
+            border: 1px solid var(--grey);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .card h3 { color: var(--primary-color); margin-top: 0; }
+
+        footer {
+            padding: 2rem;
+            text-align: center;
+            color: #666;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Donation Workflow Visualizer</h1>
+    <p class="subtitle">Comparing Azure Messaging Patterns for Your Donation App</p>
+</header>
+
+<div class="container">
+    <div class="tabs">
+        <button class="tab-btn active" id="tab-queue" onclick="switchTab('queue')">Queue Storage</button>
+        <button class="tab-btn" id="tab-bus" onclick="switchTab('bus')">Service Bus Topics</button>
+        <button class="tab-btn" id="tab-advanced" onclick="switchTab('advanced')">Advanced Patterns</button>
+    </div>
+
+    <!-- Queue View -->
+    <div id="queue-view" class="view-content active">
+        <h2>Manual Fan-out with Queues</h2>
+        <p>To trigger 4 different tasks, your Azure Function must manually send 4 messages to 4 distinct queues.</p>
+        
+        <div class="simulation-area" id="queue-sim">
+            <div class="label" style="top: 185px; left: 50px;">Producer</div>
+            <div class="node producer-node">Azure<br>Function</div>
+            
+            <div class="queue-center">
+                <div class="mini-queue" id="q1"><div class="label" style="position:static; font-size:0.6rem;">Receipt Q</div></div>
+                <div class="mini-queue" id="q2"><div class="label" style="position:static; font-size:0.6rem;">Email Q</div></div>
+                <div class="mini-queue" id="q3"><div class="label" style="position:static; font-size:0.6rem;">Cert Q</div></div>
+                <div class="mini-queue" id="q4"><div class="label" style="position:static; font-size:0.6rem;">Aggregator Q</div></div>
+            </div>
+
+            <div class="column-container" style="left: 75%; width: 130px;">
+                <div class="consumer-node">Receipt Svc</div>
+                <div class="consumer-node">Email Svc</div>
+                <div class="consumer-node">Cert Svc</div>
+                <div class="consumer-node">Aggregator</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" onclick="runQueueSim()">Process Donation</button>
+            <button class="btn" onclick="resetSim()">Reset</button>
+        </div>
+
+        <div class="card">
+            <h3>Architecture Insight</h3>
+            <p>In this model, the **Azure Function is tightly coupled** to the number of downstream systems. If you add a "Loyalty Program" worker later, you have to update the Function code to write to a 5th queue.</p>
+        </div>
+    </div>
+
+    <!-- Bus View -->
+    <div id="bus-view" class="view-content">
+        <h2>Automatic Fan-out with Topics</h2>
+        <p>Your Function sends <strong>one message</strong>. Service Bus handles the distribution to all subscribers automatically.</p>
+        
+        <div class="simulation-area" id="bus-sim">
+            <div class="label" style="top: 185px; left: 50px;">Producer</div>
+            <div class="node producer-node">Azure<br>Function</div>
+            
+            <div class="middle-content">
+                <div class="topic-circle">Donation<br>Topic</div>
+            </div>
+
+            <div class="sb-subs-column">
+                <div class="sb-sub-item" id="s1">Sub: Receipt</div>
+                <div class="sb-sub-item" id="s2">Sub: Email</div>
+                <div class="sb-sub-item" id="s3">Sub: Certificate</div>
+                <div class="sb-sub-item" id="s4">Sub: Aggregator</div>
+            </div>
+
+            <div class="column-container" style="left: 85%; width: 130px;">
+                <div class="consumer-node">Receipt Svc</div>
+                <div class="consumer-node">Email Svc</div>
+                <div class="consumer-node">Cert Svc</div>
+                <div class="consumer-node">Aggregator</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" onclick="runBusSim()">Process Donation</button>
+            <button class="btn" onclick="resetSim()">Reset</button>
+        </div>
+
+        <div class="card">
+            <h3>Architecture Insight</h3>
+            <p>This is the **Publisher/Subscriber (Pub/Sub)** pattern. The Function doesn't care who is listening. You can add new consumers (like a Data Warehouse or Mobile Alert) just by adding a new Subscription in Azure—no code changes required!</p>
+        </div>
+    </div>
+
+    <!-- Advanced View -->
+    <div id="advanced-view" class="view-content">
+        <h2>Hybrid Flow: Immediate Feedback + Coordinated Tasks</h2>
+        <p>This pattern combines <strong>Service Bus Topics</strong> for speed and <strong>Durable Functions</strong> for coordination.</p>
+        
+        <div class="simulation-area" id="advanced-sim">
+            <div class="label" style="top: 185px; left: 50px;">Trigger</div>
+            <div class="node producer-node">Azure<br>Function</div>
+            
+            <!-- Center Area with Stages -->
+            <div class="column-container" style="left: 35%; right: 35%; flex-direction: row; gap: 40px; justify-content: center;">
+                <div class="stage-box" data-label="Stage 1: Immediate">
+                    <div class="consumer-node" id="adv-immediate" style="border-color: var(--green); background-color: #e8f5e9;">Email 1:<br>Thank You</div>
+                    <!-- Spacer to align with coordinated tasks -->
+                    <div style="height: 180px;"></div> 
+                </div>
+                
+                <div class="stage-box" data-label="Stage 2: Coordinated">
+                    <div style="height: 80px; visibility: hidden;">Spacer</div>
+                    <div class="consumer-node" id="adv-c1">Task 1:<br>Receipt Gen</div>
+                    <div class="consumer-node" id="adv-c3">Task 3:<br>Certificate</div>
+                </div>
+            </div>
+
+            <div class="label" style="top: 185px; right: 50px;">Step 3: Join</div>
+            <div class="node final-aggregator">Email 2:<br>Receipt+Cert</div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" onclick="runDurableSim()">Run Hybrid Flow</button>
+            <button class="btn" onclick="resetSim()">Reset</button>
+        </div>
+
+        <div class="card">
+            <h3>Why Two Stages?</h3>
+            <p><strong>1. Immediate Satisfaction:</strong> As soon as the user hits "Donate", you send a <em>Thank You</em> email via Service Bus Topic. This is fast and reliable.</p>
+            <p><strong>2. Complex Coordination:</strong> Generating a Receipt and a Certificate takes time. You don't want to send 3 separate emails. Instead, a <strong>Durable Orchestrator</strong> waits for both PDF tasks to finish, then sends <em>one final email</em> with everything attached.</p>
+        </div>
+    </div>
+
+    <div class="comparison-section">
+        <h2>At-a-glance Comparison</h2>
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>Feature</th>
+                    <th>Azure Queue Storage</th>
+                    <th>Azure Service Bus</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Model</strong></td>
+                    <td>1-to-1 (Point-to-Point)</td>
+                    <td>1-to-Many (Pub/Sub via Topics)</td>
+                </tr>
+                <tr>
+                    <td><strong>Ordering (FIFO)</strong></td>
+                    <td>Best effort (not guaranteed)</td>
+                    <td>Strictly guaranteed (Sessions)</td>
+                </tr>
+                <tr>
+                    <td><strong>Max Queue Size</strong></td>
+                    <td>Up to 500 TB (Storage Limit)</td>
+                    <td>Up to 80 GB (per entity)</td>
+                </tr>
+                <tr>
+                    <td><strong>Message Size</strong></td>
+                    <td>64 KB max</td>
+                    <td>256 KB (Standard) to 100 MB (Premium)</td>
+                </tr>
+                <tr>
+                    <td><strong>Transactions</strong></td>
+                    <td>No</td>
+                    <td>Yes</td>
+                </tr>
+                <tr>
+                    <td><strong>Dead-Lettering</strong></td>
+                    <td>No (Manually handled)</td>
+                    <td>Yes (Built-in sub-queue)</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem;">
+        <div class="card">
+            <h3>Use Queue Storage if...</h3>
+            <ul>
+                <li>You need to store > 80 GB of messages.</li>
+                <li>Lowest cost is the #1 priority.</li>
+                <li>Simple worker pattern with no complex logic.</li>
+                <li>Downstream tasks don't need to happen simultaneously.</li>
+            </ul>
+        </div>
+        <div class="card">
+            <h3>Use Service Bus if...</h3>
+            <ul>
+                <li><strong>Your Donation Use Case:</strong> Multiple tasks must trigger from one event.</li>
+                <li>Order of processing is critical (FIFO).</li>
+                <li>You need to "Wait for A and B" (Aggregator pattern).</li>
+                <li>You require duplicate detection or scheduled delivery.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="card" style="border-top: 4px solid var(--accent-color); margin-top: 3rem;">
+        <h2>🚀 Azure Learning Roadmap for You</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+                <h4>1. Managed Identities (Security)</h4>
+                <p>Stop using Connection Strings! Learn <strong>Azure Managed Identities</strong>. It allows your Function to talk to Cosmos DB and Service Bus without any secrets in your code.</p>
+            </div>
+            <div>
+                <h4>2. Dead-Letter Queues (Reliability)</h4>
+                <p>What if the "Email Service" is down? Service Bus moves failed messages to a <strong>Dead-Letter Queue (DLQ)</strong> automatically. Learn how to monitor and "replay" them.</p>
+            </div>
+            <div>
+                <h4>3. Durable Entities (State)</h4>
+                <p>Want to track total donations in real-time? <strong>Durable Entities</strong> act like small actors that can hold a value (like a counter) without needing a database for every increment.</p>
+            </div>
+            <div>
+                <h4>4. Application Insights (Observability)</h4>
+                <p>Use the <strong>Application Map</strong> in Azure Portal. It will automatically draw a diagram of your Function, Service Bus, and Cosmos DB based on live traffic!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer>
+    Azure Learning Path &bull; Donation Workflow Architecture
+</footer>
+
+<script>
+    function switchTab(type) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.view-content').forEach(v => v.classList.remove('active'));
+        
+        if (type === 'queue') {
+            document.getElementById('tab-queue').classList.add('active');
+            document.getElementById('queue-view').classList.add('active');
+        } else if (type === 'bus') {
+            document.getElementById('tab-bus').classList.add('active');
+            document.getElementById('bus-view').classList.add('active');
+        } else {
+            document.getElementById('tab-advanced').classList.add('active');
+            document.getElementById('advanced-view').classList.add('active');
+        }
+        resetSim();
+    }
+
+    function createMsg(text, startX, startY) {
+        const msg = document.createElement('div');
+        msg.className = 'message';
+        msg.textContent = text;
+        msg.style.left = startX + 'px';
+        msg.style.top = startY + 'px';
+        return msg;
+    }
+
+    function runQueueSim() {
+        const area = document.getElementById('queue-sim');
+        const queues = [document.getElementById('q1'), document.getElementById('q2'), document.getElementById('q3'), document.getElementById('q4')];
+        const consumers = document.querySelectorAll('#queue-sim .consumer-node');
+        const areaRect = area.getBoundingClientRect();
+
+        queues.forEach((q, i) => {
+            setTimeout(() => {
+                const msg = createMsg('Donation', 100, 230);
+                area.appendChild(msg);
+
+                const qRect = q.getBoundingClientRect();
+                const targetX = qRect.left - areaRect.left + 20;
+                const targetY = qRect.top - areaRect.top + 15;
+
+                setTimeout(() => {
+                    msg.style.transition = 'all 1.2s ease-in-out';
+                    msg.style.left = targetX + 'px';
+                    msg.style.top = targetY + 'px';
+
+                    setTimeout(() => {
+                        const cRect = consumers[i].getBoundingClientRect();
+                        msg.style.left = (cRect.left - areaRect.left + 20) + 'px';
+                        msg.style.top = (cRect.top - areaRect.top + 20) + 'px';
+                        setTimeout(() => msg.remove(), 1200);
+                    }, 1500);
+                }, 100);
+            }, i * 600);
+        });
+    }
+
+    function runBusSim() {
+        const area = document.getElementById('bus-sim');
+        const subs = [document.getElementById('s1'), document.getElementById('s2'), document.getElementById('s3'), document.getElementById('s4')];
+        const consumers = document.querySelectorAll('#bus-sim .consumer-node');
+        const areaRect = area.getBoundingClientRect();
+
+        const msg = createMsg('Donation', 100, 230);
+        area.appendChild(msg);
+
+        setTimeout(() => {
+            msg.style.transition = 'all 1.2s ease-in-out';
+            msg.style.left = '40%';
+            msg.style.top = '250px';
+            msg.style.transform = 'translate(-50%, -50%)';
+
+            setTimeout(() => {
+                msg.remove();
+                subs.forEach((sub, i) => {
+                    const subMsg = createMsg('Copy', 0, 0);
+                    subMsg.style.left = '40%';
+                    subMsg.style.top = '250px';
+                    subMsg.style.transform = 'translate(-50%, -50%)';
+                    subMsg.style.background = i % 2 === 0 ? '#107c10' : '#5c2d91';
+                    area.appendChild(subMsg);
+
+                    const sRect = sub.getBoundingClientRect();
+                    setTimeout(() => {
+                        subMsg.style.transition = 'all 1.2s ease-in-out';
+                        subMsg.style.transform = 'none';
+                        subMsg.style.left = (sRect.left - areaRect.left + 15) + 'px';
+                        subMsg.style.top = (sRect.top - areaRect.top + 15) + 'px';
+
+                        setTimeout(() => {
+                            const cRect = consumers[i].getBoundingClientRect();
+                            subMsg.style.left = (cRect.left - areaRect.left + 15) + 'px';
+                            subMsg.style.top = (cRect.top - areaRect.top + 15) + 'px';
+                            setTimeout(() => subMsg.remove(), 1200);
+                        }, 1500);
+                    }, 100);
+                });
+            }, 1200);
+        }, 100);
+    }
+
+    function runDurableSim() {
+        const area = document.getElementById('advanced-sim');
+        const immediateNode = document.getElementById('adv-immediate');
+        const tasks = [document.getElementById('adv-c1'), document.getElementById('adv-c3')];
+        const aggregator = document.querySelector('.final-aggregator');
+        const areaRect = area.getBoundingClientRect();
+
+        // Stage 1: Immediate Thank You
+        const immMsg = createMsg('Email 1', 100, 230);
+        immMsg.style.background = '#107c10';
+        area.appendChild(immMsg);
+        
+        const immRect = immediateNode.getBoundingClientRect();
+        setTimeout(() => {
+            immMsg.style.transition = 'all 1.2s ease-out';
+            immMsg.style.left = (immRect.left - areaRect.left + 20) + 'px';
+            immMsg.style.top = (immRect.top - areaRect.top + 20) + 'px';
+            setTimeout(() => immMsg.remove(), 1200);
+        }, 100);
+
+        // Stage 2: Orchestration
+        setTimeout(() => {
+            tasks.forEach((t, i) => {
+                const taskMsg = createMsg('Work', 100, 230);
+                taskMsg.style.background = '#0078d4';
+                area.appendChild(taskMsg);
+                
+                const tRect = t.getBoundingClientRect();
+                setTimeout(() => {
+                    taskMsg.style.transition = 'all 1.5s ease-in-out';
+                    taskMsg.style.left = (tRect.left - areaRect.left + 20) + 'px';
+                    taskMsg.style.top = (tRect.top - areaRect.top + 20) + 'px';
+                    
+                    setTimeout(() => {
+                        // Stage 3: Aggregation
+                        const resMsg = createMsg('PDF!', (tRect.left - areaRect.left + 20), (tRect.top - areaRect.top + 20));
+                        resMsg.style.background = '#5c2d91';
+                        area.appendChild(resMsg);
+                        taskMsg.remove();
+                        
+                        setTimeout(() => {
+                            const aRect = aggregator.getBoundingClientRect();
+                            resMsg.style.transition = 'all 1.5s ease-in-out';
+                            resMsg.style.left = (aRect.left - areaRect.left + 20) + 'px';
+                            resMsg.style.top = (aRect.top - areaRect.top + 20) + 'px';
+                            setTimeout(() => resMsg.remove(), 1500);
+                        }, 200);
+                    }, 2000);
+                }, 100);
+            });
+        }, 1000);
+    }
+
+    function resetSim() {
+        document.querySelectorAll('.message').forEach(m => m.remove());
+    }
+</script>
+
+</body>
+</html>
