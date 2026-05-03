@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure Durable Functions: Entities</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f9;
+            --primary-color: #5c2d91; /* Purple for Durable */
+            --secondary-color: #0078d4;
+            --accent-color: #00a2ed;
+            --text-color: #323130;
+            --white: #ffffff;
+            --grey: #edebe9;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: var(--white);
+            width: 100%;
+            padding: 2rem 0;
+            text-align: center;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+
+        h1 { margin: 0; font-weight: 300; }
+        .container {
+            width: 95%;
+            max-width: 1000px;
+            background: var(--white);
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-bottom: 3rem;
+        }
+
+        .back-link { display: inline-block; margin-bottom: 1rem; color: var(--primary-color); text-decoration: none; font-weight: bold; }
+
+        .simulation-area {
+            height: 400px;
+            background: #fafafa;
+            border: 1px dashed #ccc;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .actor-box {
+            width: 250px;
+            height: 300px;
+            background: #fff;
+            border: 3px solid var(--primary-color);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            box-shadow: var(--shadow);
+            position: relative;
+        }
+
+        .actor-header {
+            text-align: center;
+            font-weight: bold;
+            border-bottom: 2px solid var(--grey);
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+
+        .state-display {
+            flex-grow: 1;
+            background: #f1f8ff;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: monospace;
+            font-size: 1.2rem;
+        }
+
+        .state-value { font-size: 3rem; font-weight: bold; color: var(--secondary-color); }
+
+        .operation {
+            width: 100px;
+            height: 40px;
+            background: var(--secondary-color);
+            color: white;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.8rem;
+            position: absolute;
+            z-index: 20;
+            opacity: 0;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .controls { display: flex; justify-content: center; gap: 1rem; margin-top: 1rem; }
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border: 2px solid var(--primary-color);
+            background: white;
+            color: var(--primary-color);
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .btn:hover { background: var(--primary-color); color: white; }
+
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem; }
+        .card { background: #fff; border: 1px solid var(--grey); padding: 1.5rem; border-radius: 8px; }
+        .card h3 { margin-top: 0; color: var(--primary-color); }
+        footer { padding: 2rem; text-align: center; color: #666; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Durable Entities (Actors)</h1>
+    <p class="subtitle">Managing Distributed State with Virtual Actors</p>
+</header>
+
+<div class="container">
+    <a href="index.html" class="back-link">← Back to Visualizer</a>
+
+    <h2>Entity State Simulation</h2>
+    <p>Durable Entities allow you to store state for thousands of unique IDs (like "DonationCounter" or "User_123") without a traditional database.</p>
+
+    <div class="simulation-area" id="sim-area">
+        <div class="actor-box">
+            <div class="actor-header">Entity: DonationTotal</div>
+            <div class="state-display">
+                <div style="font-size: 0.8rem;">Current State</div>
+                <div class="state-value" id="val">$0</div>
+            </div>
+        </div>
+        <div id="op-msg" class="operation">Add($10)</div>
+    </div>
+
+    <div class="controls">
+        <button class="btn" onclick="performOp('Add', 10)">Add $10</button>
+        <button class="btn" onclick="performOp('Add', 50)">Add $50</button>
+        <button class="btn" style="border-color: #d13438; color: #d13438;" onclick="performOp('Reset', 0)">Reset State</button>
+    </div>
+
+    <div class="info-grid">
+        <div class="card">
+            <h3>Virtual Actor Model</h3>
+            <p>Entities are created automatically the first time they are called. They "sleep" when not in use and "wake up" to process operations, preserving state forever.</p>
+        </div>
+        <div class="card">
+            <h3>Key Operations</h3>
+            <ul>
+                <li><strong>Signal:</strong> One-way fire-and-forget call.</li>
+                <li><strong>Call:</strong> Two-way request/response (awaits result).</li>
+                <li><strong>Locking:</strong> Entities can be locked for atomic multi-entity operations.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<footer>Azure Durable Functions &bull; 2026</footer>
+
+<script>
+    let currentVal = 0;
+    const valEl = document.getElementById('val');
+    const opEl = document.getElementById('op-msg');
+
+    function performOp(type, amount) {
+        opEl.textContent = `${type}(${amount > 0 ? '$'+amount : ''})`;
+        opEl.style.opacity = '1';
+        opEl.style.left = '50px';
+        opEl.style.transition = 'none';
+        
+        setTimeout(() => {
+            opEl.style.transition = 'all 0.8s ease-in-out';
+            opEl.style.left = '450px';
+            
+            setTimeout(() => {
+                if (type === 'Reset') currentVal = 0;
+                else currentVal += amount;
+                
+                valEl.textContent = `$${currentVal}`;
+                valEl.style.transform = 'scale(1.2)';
+                opEl.style.opacity = '0';
+                
+                setTimeout(() => valEl.style.transform = 'scale(1)', 200);
+            }, 800);
+        }, 50);
+    }
+</script>
+</body>
+</html>

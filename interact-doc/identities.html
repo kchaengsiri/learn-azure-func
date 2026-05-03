@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure Security: Managed Identities</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f9;
+            --primary-color: #0078d4;
+            --secondary-color: #005a9e;
+            --accent-color: #107c10;
+            --text-color: #323130;
+            --white: #ffffff;
+            --grey: #edebe9;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: var(--white);
+            width: 100%;
+            padding: 2rem 0;
+            text-align: center;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+
+        h1 { margin: 0; font-weight: 300; }
+        .container {
+            width: 95%;
+            max-width: 1000px;
+            background: var(--white);
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-bottom: 3rem;
+        }
+
+        .back-link { display: inline-block; margin-bottom: 1rem; color: var(--primary-color); text-decoration: none; font-weight: bold; }
+
+        .simulation-area {
+            height: 400px;
+            background: #fafafa;
+            border: 1px dashed #ccc;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .node {
+            position: absolute;
+            width: 130px;
+            height: 90px;
+            background: var(--white);
+            border: 2px solid var(--primary-color);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.85rem;
+            text-align: center;
+            z-index: 10;
+        }
+
+        .identity-provider { left: 435px; top: 50px; border-color: #ff8c00; background: #fff4e5; }
+        .app-node { left: 100px; top: 200px; border-color: var(--secondary-color); }
+        .resource-node { right: 100px; top: 200px; border-color: var(--accent-color); background: #e8f5e9; }
+
+        .token {
+            width: 80px;
+            height: 30px;
+            background: #ff8c00;
+            color: white;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 15px;
+            position: absolute;
+            z-index: 20;
+            font-weight: bold;
+            opacity: 0;
+            transition: all 0.8s ease-in-out;
+        }
+
+        .controls { display: flex; justify-content: center; gap: 1rem; margin-top: 1rem; }
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border: 2px solid var(--primary-color);
+            background: white;
+            color: var(--primary-color);
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .btn:hover { background: var(--primary-color); color: white; }
+
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem; }
+        .card { background: #fff; border: 1px solid var(--grey); padding: 1.5rem; border-radius: 8px; }
+        .card h3 { margin-top: 0; color: var(--secondary-color); }
+        footer { padding: 2rem; text-align: center; color: #666; }
+
+        .secret-leak {
+            position: absolute;
+            color: #d13438;
+            font-weight: bold;
+            font-size: 0.8rem;
+            background: #fdeaea;
+            padding: 5px;
+            border-radius: 4px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Managed Identities for Azure</h1>
+    <p class="subtitle">Passwordless Authentication for Cloud Resources</p>
+</header>
+
+<div class="container">
+    <a href="index.html" class="back-link">← Back to Visualizer</a>
+
+    <h2>The "No Secrets" Flow</h2>
+    <p>Watch how your App authenticates with Azure SQL or Service Bus without ever touching a connection string or password.</p>
+
+    <div class="simulation-area" id="sim-area">
+        <div class="node app-node">Azure Function<br><small>Identity: ON</small></div>
+        <div class="node identity-provider">Microsoft Entra<br><small>(Azure AD)</small></div>
+        <div class="node resource-node">Azure Resource<br><small>(SQL/Bus/Blob)</small></div>
+        <div id="token-msg" class="token">OAuth Token</div>
+    </div>
+
+    <div class="controls">
+        <button class="btn" onclick="runIdentityFlow()">Authorize & Access</button>
+        <button class="btn" style="border-color: #d13438; color: #d13438;" onclick="showTheRisk()">Why not Secrets?</button>
+        <button class="btn" onclick="resetSim()">Reset</button>
+    </div>
+
+    <div class="info-grid">
+        <div class="card">
+            <h3>System-Assigned</h3>
+            <p>Tied directly to the Azure Resource (like one specific Function).</p>
+        </div>
+        <div class="card">
+            <h3>User-Assigned</h3>
+            <p>Created as a standalone resource. Can be shared across multiple apps.</p>
+        </div>
+    </div>
+</div>
+
+<footer>Azure Security Deep Dive &bull; 2026</footer>
+
+<script>
+    const token = document.getElementById('token-msg');
+    const res = document.querySelector('.resource-node');
+
+    function runIdentityFlow() {
+        resetSim();
+        token.style.opacity = '1';
+        token.style.left = '125px';
+        token.style.top = '160px';
+        token.textContent = "Request";
+        
+        setTimeout(() => {
+            token.style.left = '460px';
+            token.style.top = '145px';
+            setTimeout(() => {
+                token.textContent = "Token";
+                token.style.background = '#107c10';
+                token.style.left = '125px';
+                token.style.top = '230px';
+                setTimeout(() => {
+                    token.style.left = '740px';
+                    setTimeout(() => {
+                        res.style.boxShadow = "0 0 20px #107c10";
+                        token.style.opacity = '0';
+                    }, 800);
+                }, 1000);
+            }, 1000);
+        }, 100);
+    }
+
+    function showTheRisk() {
+        resetSim();
+        const leak = document.createElement('div');
+        leak.className = 'secret-leak';
+        leak.textContent = 'Connection String Leaked!';
+        leak.style.left = '80px';
+        leak.style.top = '300px';
+        document.getElementById('sim-area').appendChild(leak);
+    }
+
+    function resetSim() {
+        token.style.opacity = '0';
+        token.style.transition = 'none';
+        token.style.left = '125px';
+        token.style.top = '160px';
+        token.style.background = '#ff8c00';
+        res.style.boxShadow = 'none';
+        document.querySelectorAll('.secret-leak').forEach(l => l.remove());
+        setTimeout(() => token.style.transition = 'all 0.8s ease-in-out', 50);
+    }
+</script>
+</body>
+</html>

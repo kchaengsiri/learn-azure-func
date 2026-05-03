@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure Service Bus: Dead Letter Queues (DLQ)</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f9;
+            --primary-color: #0078d4;
+            --secondary-color: #005a9e;
+            --accent-color: #d13438;
+            --success-color: #107c10;
+            --text-color: #323130;
+            --white: #ffffff;
+            --grey: #edebe9;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            background-color: var(--secondary-color);
+            color: var(--white);
+            width: 100%;
+            padding: 2rem 0;
+            text-align: center;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+
+        h1 { margin: 0; font-weight: 300; }
+        p.subtitle { margin-top: 0.5rem; opacity: 0.9; }
+
+        .container {
+            width: 95%;
+            max-width: 1000px;
+            background: var(--white);
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-bottom: 3rem;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .simulation-area {
+            height: 400px;
+            background: #fafafa;
+            border: 1px dashed #ccc;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .node {
+            position: absolute;
+            width: 120px;
+            height: 80px;
+            background: var(--white);
+            border: 2px solid var(--primary-color);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.85rem;
+            text-align: center;
+            z-index: 10;
+        }
+
+        .queue-node {
+            left: 300px;
+            top: 150px;
+            width: 200px;
+            height: 100px;
+            border-width: 3px;
+            background: #e1f5fe;
+        }
+
+        .dlq-node {
+            left: 300px;
+            top: 280px;
+            width: 200px;
+            height: 60px;
+            border-color: var(--accent-color);
+            background: #fdeaea;
+            font-size: 0.75rem;
+        }
+
+        .producer-node { left: 50px; top: 160px; border-color: var(--primary-color); }
+        .consumer-node { right: 50px; top: 160px; border-color: #5c2d91; }
+
+        .message {
+            width: 70px;
+            height: 40px;
+            background: var(--primary-color);
+            color: white;
+            font-size: 0.7rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            position: absolute;
+            z-index: 20;
+            font-weight: bold;
+            transition: all 0.8s ease-in-out;
+        }
+
+        .delivery-count { font-size: 0.6rem; opacity: 0.8; }
+
+        .controls { display: flex; justify-content: center; gap: 1rem; margin-top: 1rem; }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border: 2px solid var(--primary-color);
+            background: white;
+            color: var(--primary-color);
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .btn:hover { background: var(--primary-color); color: white; }
+        .btn-dlq { border-color: var(--accent-color); color: var(--accent-color); }
+        .btn-dlq:hover { background: var(--accent-color); color: white; }
+
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem; }
+
+        .card { background: #fff; border: 1px solid var(--grey); padding: 1.5rem; border-radius: 8px; }
+        .card h3 { margin-top: 0; color: var(--secondary-color); }
+        
+        .reason-tag { display: inline-block; padding: 2px 8px; background: #eee; border-radius: 4px; font-size: 0.8rem; font-family: monospace; margin-bottom: 5px; }
+
+        .status-log {
+            background: #333;
+            color: #adff2f;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            height: 120px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+
+        footer { padding: 2rem; text-align: center; color: #666; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Service Bus Dead Letter Queues</h1>
+    <p class="subtitle">Handling failures gracefully in Messaging Systems</p>
+</header>
+
+<div class="container">
+    <a href="index.html" class="back-link">← Back to Workflow Visualizer</a>
+
+    <h2>DLQ Lifecycle Simulation</h2>
+    <p>Watch how a message moves to the Dead Letter Queue after repeated processing failures.</p>
+
+    <div class="simulation-area" id="sim-area">
+        <div class="node producer-node">Producer<br><small>(App/Function)</small></div>
+        <div class="node queue-node">Main Queue<br><small>Active Messages</small></div>
+        <div class="node dlq-node">Dead Letter Queue<br><small>$DeadLetterQueue</small></div>
+        <div class="node consumer-node">Consumer<br><small>(Worker)</small></div>
+    </div>
+
+    <div class="status-log" id="log">
+        > System ready. Click "Send Message" to begin.
+    </div>
+
+    <div class="controls">
+        <button class="btn" id="send-btn" onclick="sendMessage()">Send Message</button>
+        <button class="btn btn-dlq" id="replay-btn" onclick="replayDLQ()" disabled>Replay from DLQ</button>
+        <button class="btn" onclick="resetSim()">Reset</button>
+    </div>
+
+    <div class="info-grid">
+        <div class="card">
+            <h3>Why messages end up here?</h3>
+            <ul>
+                <li><span class="reason-tag">MaxDeliveryCountExceeded</span>: The message was tried 10 times (default) and failed every time.</li>
+                <li><span class="reason-tag">TTLExpiredException</span>: The message sat in the queue longer than its Time-To-Live.</li>
+                <li><span class="reason-tag">ManualDeadLetter</span>: Your code explicitly called <code>DeadLetterAsync()</code>.</li>
+            </ul>
+        </div>
+        <div class="card">
+            <h3>Key Characteristics</h3>
+            <ul>
+                <li><strong>Automatic:</strong> Every Queue/Subscription has one.</li>
+                <li><strong>Path:</strong> <code>queue-name/$DeadLetterQueue</code></li>
+                <li><strong>Observation:</strong> You can't "send" to a DLQ directly.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<footer>Azure Messaging Deep Dive &bull; 2026</footer>
+
+<script>
+    let deliveryCount = 0;
+    const maxDeliveries = 3;
+    let activeMsg = null;
+    const logEl = document.getElementById('log');
+
+    function log(msg) {
+        const div = document.createElement('div');
+        div.textContent = `> ${msg}`;
+        logEl.appendChild(div);
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function sendMessage() {
+        if (activeMsg) return;
+        document.getElementById('send-btn').disabled = true;
+        activeMsg = document.createElement('div');
+        activeMsg.className = 'message';
+        activeMsg.innerHTML = `Order #101<br><span class="delivery-count">Count: 0</span>`;
+        activeMsg.style.left = '50px';
+        activeMsg.style.top = '180px';
+        document.getElementById('sim-area').appendChild(activeMsg);
+        log("Producer sent Message #101 to Main Queue.");
+        setTimeout(() => {
+            activeMsg.style.left = '365px';
+            activeMsg.style.top = '180px';
+            setTimeout(processCycle, 1000);
+        }, 100);
+    }
+
+    function processCycle() {
+        if (!activeMsg) return;
+        log(`Consumer picking up message (Attempt ${deliveryCount + 1})...`);
+        activeMsg.style.left = '830px';
+        setTimeout(() => {
+            deliveryCount++;
+            activeMsg.querySelector('.delivery-count').textContent = `Count: ${deliveryCount}`;
+            if (deliveryCount < maxDeliveries) {
+                log("Processing FAILED. Abandoning message...");
+                activeMsg.style.background = '#e1ad01';
+                setTimeout(() => {
+                    activeMsg.style.left = '365px';
+                    activeMsg.style.background = '#0078d4';
+                    setTimeout(processCycle, 1500);
+                }, 1000);
+            } else {
+                log("MaxDeliveryCount exceeded! Moving to Dead Letter Queue.");
+                activeMsg.style.background = '#d13438';
+                setTimeout(() => {
+                    activeMsg.style.left = '365px';
+                    activeMsg.style.top = '290px';
+                    log("Message #101 is now in $DeadLetterQueue.");
+                    document.getElementById('replay-btn').disabled = false;
+                }, 1000);
+            }
+        }, 1200);
+    }
+
+    function replayDLQ() {
+        if (!activeMsg) return;
+        log("Replaying: Moving message from DLQ back to Main Queue...");
+        document.getElementById('replay-btn').disabled = true;
+        activeMsg.style.top = '180px';
+        activeMsg.style.background = '#107c10';
+        deliveryCount = 0;
+        activeMsg.querySelector('.delivery-count').textContent = `Count: 0`;
+        setTimeout(() => {
+            log("Success! Consumer processed the replayed message.");
+            activeMsg.style.left = '830px';
+            setTimeout(() => {
+                activeMsg.remove();
+                activeMsg = null;
+                document.getElementById('send-btn').disabled = false;
+                log("Workflow complete.");
+            }, 1000);
+        }, 1200);
+    }
+
+    function resetSim() {
+        if (activeMsg) activeMsg.remove();
+        activeMsg = null;
+        deliveryCount = 0;
+        document.getElementById('send-btn').disabled = false;
+        document.getElementById('replay-btn').disabled = true;
+        logEl.innerHTML = '> System ready. Click "Send Message" to begin.';
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure Observability: Application Insights</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f9;
+            --primary-color: #0078d4;
+            --secondary-color: #005a9e;
+            --accent-color: #00bcd4;
+            --text-color: #323130;
+            --white: #ffffff;
+            --grey: #edebe9;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            background-color: var(--secondary-color);
+            color: var(--white);
+            width: 100%;
+            padding: 2rem 0;
+            text-align: center;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+
+        h1 { margin: 0; font-weight: 300; }
+        .container {
+            width: 95%;
+            max-width: 1000px;
+            background: var(--white);
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-bottom: 3rem;
+        }
+
+        .back-link { display: inline-block; margin-bottom: 1rem; color: var(--primary-color); text-decoration: none; font-weight: bold; }
+
+        .simulation-area {
+            height: 400px;
+            background: #252423; /* Dark for Azure Portal feel */
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .app-map-node {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: #fff;
+            border: 2px solid var(--accent-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            text-align: center;
+            font-weight: bold;
+            z-index: 10;
+        }
+
+        .node-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .flow-line {
+            position: absolute;
+            height: 2px;
+            background: #444;
+            z-index: 5;
+            transform-origin: left center;
+        }
+
+        .traffic {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            position: absolute;
+            z-index: 6;
+            opacity: 0;
+        }
+
+        .controls { display: flex; justify-content: center; gap: 1rem; margin-top: 1rem; }
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border: 2px solid var(--primary-color);
+            background: white;
+            color: var(--primary-color);
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .btn:hover { background: var(--primary-color); color: white; }
+
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem; }
+        .card { background: #fff; border: 1px solid var(--grey); padding: 1.5rem; border-radius: 8px; }
+        .card h3 { margin-top: 0; color: var(--secondary-color); }
+        footer { padding: 2rem; text-align: center; color: #666; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Application Insights</h1>
+    <p class="subtitle">E2E Observability and Distributed Tracing</p>
+</header>
+
+<div class="container">
+    <a href="index.html" class="back-link">← Back to Visualizer</a>
+
+    <h2>Interactive Application Map</h2>
+    <p>Application Insights automatically discovers your system's topology and highlights performance bottlenecks or failures.</p>
+
+    <div class="simulation-area" id="sim-area">
+        <div class="app-map-node" style="left: 50px; top: 150px;">
+            <div class="node-circle">Client</div>
+            Web App
+        </div>
+        <div class="app-map-node" style="left: 450px; top: 150px;">
+            <div class="node-circle">Fn</div>
+            Function
+        </div>
+        <div class="app-map-node" style="left: 850px; top: 50px;">
+            <div class="node-circle">DB</div>
+            Cosmos DB
+        </div>
+        <div class="app-map-node" style="left: 850px; top: 250px;">
+            <div class="node-circle">SB</div>
+            Service Bus
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn" onclick="simulateTraffic()">Simulate Traffic</button>
+        <button class="btn" style="border-color: #d13438; color: #d13438;" onclick="simulateFailure()">Show Failure</button>
+        <button class="btn" onclick="resetSim()">Clear</button>
+    </div>
+
+    <div class="info-grid">
+        <div class="card">
+            <h3>Distributed Tracing</h3>
+            <p>Track a single request across multiple services. If a "Process Donation" call fails, App Insights shows you exactly which service in the chain caused the error.</p>
+        </div>
+        <div class="card">
+            <h3>Live Metrics</h3>
+            <p>Monitor near-real-time performance counters like CPU, Memory, and Request Duration without waiting for logs to ingest.</p>
+        </div>
+    </div>
+</div>
+
+<footer>Azure Monitor &bull; 2026</footer>
+
+<script>
+    function simulateTraffic() {
+        const paths = [
+            { start: [150, 200], end: [450, 200] },
+            { start: [550, 200], end: [850, 100] },
+            { start: [550, 200], end: [850, 300] }
+        ];
+
+        paths.forEach(p => {
+            const dot = document.createElement('div');
+            dot.className = 'traffic';
+            dot.style.left = p.start[0] + 'px';
+            dot.style.top = p.start[1] + 'px';
+            dot.style.opacity = '1';
+            document.getElementById('sim-area').appendChild(dot);
+
+            setTimeout(() => {
+                dot.style.transition = 'all 1s ease-in-out';
+                dot.style.left = p.end[0] + 'px';
+                dot.style.top = p.end[1] + 'px';
+                setTimeout(() => dot.remove(), 1000);
+            }, 50);
+        });
+    }
+
+    function simulateFailure() {
+        const fnNode = document.querySelectorAll('.app-map-node')[1];
+        fnNode.style.borderColor = '#d13438';
+        fnNode.style.backgroundColor = '#fdeaea';
+        const alert = document.createElement('div');
+        alert.style.position = 'absolute';
+        alert.style.color = '#d13438';
+        alert.style.top = '120px';
+        alert.style.left = '450px';
+        alert.style.fontWeight = 'bold';
+        alert.textContent = '500 Error: Database Timeout';
+        alert.className = 'error-msg';
+        document.getElementById('sim-area').appendChild(alert);
+    }
+
+    function resetSim() {
+        const fnNode = document.querySelectorAll('.app-map-node')[1];
+        fnNode.style.borderColor = '#00bcd4';
+        fnNode.style.backgroundColor = '#fff';
+        document.querySelectorAll('.error-msg').forEach(e => e.remove());
+    }
+</script>
+</body>
+</html>

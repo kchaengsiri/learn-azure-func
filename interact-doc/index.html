@@ -504,28 +504,43 @@
                 </tr>
                 <tr>
                     <td><strong>Ordering (FIFO)</strong></td>
-                    <td>Best effort (not guaranteed)</td>
-                    <td>Strictly guaranteed (Sessions)</td>
+                    <td>Best effort (Not guaranteed)</td>
+                    <td>Strictly guaranteed (via Sessions)</td>
+                </tr>
+                <tr>
+                    <td><strong>Delivery Guarantee</strong></td>
+                    <td>At-Least-Once</td>
+                    <td>At-Least-Once or At-Most-Once</td>
+                </tr>
+                <tr>
+                    <td><strong>Receive Mode</strong></td>
+                    <td>Polling (Non-blocking)</td>
+                    <td>Long Polling & Push-style</td>
                 </tr>
                 <tr>
                     <td><strong>Max Queue Size</strong></td>
-                    <td>Up to 500 TB (Storage Limit)</td>
-                    <td>Up to 80 GB (per entity)</td>
+                    <td>Up to 5 PiB (Storage Account limit)</td>
+                    <td>1 GB to 80 GB (per entity)</td>
                 </tr>
                 <tr>
                     <td><strong>Message Size</strong></td>
                     <td>64 KB max</td>
-                    <td>256 KB (Standard) to 100 MB (Premium)</td>
+                    <td>256 KB to 100 MB (Tier dependent)</td>
                 </tr>
                 <tr>
                     <td><strong>Transactions</strong></td>
                     <td>No</td>
-                    <td>Yes</td>
+                    <td>Yes (Local & Atomic)</td>
+                </tr>
+                <tr>
+                    <td><strong>Duplicate Detection</strong></td>
+                    <td>No</td>
+                    <td>Yes (based on MessageId)</td>
                 </tr>
                 <tr>
                     <td><strong>Dead-Lettering</strong></td>
-                    <td>No (Manually handled)</td>
-                    <td>Yes (Built-in sub-queue)</td>
+                    <td>No (Manual handling)</td>
+                    <td>Yes (Built-in $DeadLetterQueue)</td>
                 </tr>
             </tbody>
         </table>
@@ -535,19 +550,19 @@
         <div class="card">
             <h3>Use Queue Storage if...</h3>
             <ul>
-                <li>You need to store > 80 GB of messages.</li>
-                <li>Lowest cost is the #1 priority.</li>
-                <li>Simple worker pattern with no complex logic.</li>
-                <li>Downstream tasks don't need to happen simultaneously.</li>
+                <li>You need to store massive amounts of messages (> 80 GB / up to 5 PiB).</li>
+                <li>Your application requires an "At-Least-Once" model without complex features.</li>
+                <li>Lowest cost for basic buffering is the primary concern.</li>
+                <li>You need to track progress via <em>DequeueCount</em>.</li>
             </ul>
         </div>
         <div class="card">
             <h3>Use Service Bus if...</h3>
             <ul>
                 <li><strong>Your Donation Use Case:</strong> Multiple tasks must trigger from one event.</li>
-                <li>Order of processing is critical (FIFO).</li>
-                <li>You need to "Wait for A and B" (Aggregator pattern).</li>
-                <li>You require duplicate detection or scheduled delivery.</li>
+                <li>Strict FIFO ordering or Sessions are required.</li>
+                <li>You need "Exactly-Once" processing patterns.</li>
+                <li>Built-in features like Duplicate Detection or Dead-Lettering are needed.</li>
             </ul>
         </div>
     </div>
@@ -557,19 +572,19 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
             <div>
                 <h4>1. Managed Identities (Security)</h4>
-                <p>Stop using Connection Strings! Learn <strong>Azure Managed Identities</strong>. It allows your Function to talk to Cosmos DB and Service Bus without any secrets in your code.</p>
+                <p>Stop using Connection Strings! Learn <strong>Azure Managed Identities</strong>. <a href="identities.html"><strong>Interactive: Learn how to talk to services without secrets.</strong></a></p>
             </div>
             <div>
                 <h4>2. Dead-Letter Queues (Reliability)</h4>
-                <p>What if the "Email Service" is down? Service Bus moves failed messages to a <strong>Dead-Letter Queue (DLQ)</strong> automatically. Learn how to monitor and "replay" them.</p>
+                <p>What if the "Email Service" is down? Service Bus moves failed messages to a <strong>Dead-Letter Queue (DLQ)</strong> automatically. <a href="dlq.html"><strong>Interactive: Learn how to monitor and "replay" them.</strong></a></p>
             </div>
             <div>
                 <h4>3. Durable Entities (State)</h4>
-                <p>Want to track total donations in real-time? <strong>Durable Entities</strong> act like small actors that can hold a value (like a counter) without needing a database for every increment.</p>
+                <p>Want to track total donations in real-time? <strong>Durable Entities</strong> act like small actors that can hold a value. <a href="entities.html"><strong>Interactive: See how to manage state at scale.</strong></a></p>
             </div>
             <div>
                 <h4>4. Application Insights (Observability)</h4>
-                <p>Use the <strong>Application Map</strong> in Azure Portal. It will automatically draw a diagram of your Function, Service Bus, and Cosmos DB based on live traffic!</p>
+                <p>Use the <strong>Application Map</strong> in Azure Portal. It will automatically draw a diagram based on live traffic! <a href="insights.html"><strong>Interactive: Explore your system topology.</strong></a></p>
             </div>
         </div>
     </div>
