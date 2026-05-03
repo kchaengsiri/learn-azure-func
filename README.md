@@ -342,6 +342,17 @@ az servicebus topic create \
   --namespace-name sb-game-learn-webhook
 ```
 
+**Shows the count of messages in the Dead-Letter Queue (DLQ)**
+
+```sh
+az servicebus topic subscription show \
+  --resource-group rg-learn-webhook \
+  --namespace-name sb-game-learn-webhook \
+  --topic-name learn-webhook-topic \
+  --name AllEventsSubscription \
+  --query "countDetails.deadLetterMessageCount"
+```
+
 **Get the Connection String**
 
 ```sh
@@ -353,12 +364,101 @@ az servicebus namespace authorization-rule keys list \
 ```
 
 **Create a Subscription to the topic**
+
 ```sh
 az servicebus topic subscription create \
   --name AllEventsSubscription \
   --resource-group rg-learn-webhook \
   --namespace-name sb-game-learn-webhook \
   --topic-name learn-webhook-topic
+```
+
+### Setting up the Cloud (RBAC)
+
+When you deploy to Azure, `az login` won't be there.
+You must give the Function App's Managed Identity permission to talk to the Service Bus.
+Run these commands to finish the setup:
+
+1. Enable System-Assigned Identity for your App
+
+```sh
+az functionapp identity assign \
+  --name game-learn-webhook \
+  --resource-group rg-learn-webhook
+```
+
+2. Get Principal ID
+
+_Function App's Principal ID_
+
+```sh
+az functionapp identity show \
+  --name game-learn-webhook \
+  --resource-group rg-learn-webhook \
+  --query principalId \
+  -o tsv
+```
+
+_Your own Principal ID (from `az login`)_
+
+```sh
+az ad signed-in-user show --query id -o tsv
+```
+
+3. Grant the "Data Receiver" role (for the Consumer)
+
+```sh
+az role assignment create \
+  --assignee $PRINCIPAL_ID \
+  --role "Azure Service Bus Data Receiver" \
+  --scope /subscriptions/<YOUR_SUBSCRIPTION_ID>/resourceGroups/rg-learn-webhook
+```
+
+4. Grant the "Data Sender" role (for the Webhook)
+
+```sh
+az role assignment create \
+  --assignee $PRINCIPAL_ID \
+  --role "Azure Service Bus Data Sender" \
+  --scope /subscriptions/<YOUR_SUBSCRIPTION_ID>/resourceGroups/rg-learn-webhook
+```
+
+### Assign the Cosmos DB Built-in Data Contributor role
+
+1. List Roles (optional)
+
+```sh
+az cosmosdb sql role definition list \
+  --account-name db-learn-webhook \
+  --resource-group rg-learn-webhook
+```
+
+2. Create the SQL Role Assignment
+
+```sh
+az cosmosdb sql role assignment create \
+  --account-name db-learn-webhook \
+  --resource-group rg-learn-webhook \
+  --scope "/" \
+  --principal-id <PRINCIPAL_ID> \
+  --role-definition-id 00000000-0000-0000-0000-000000000002
+```
+
+_**NOTE:** Standard Cosmos DB Built-in Data Roles_
+|Role Name|Role Definition ID|Description|
+|---|---|---|
+|Cosmos DB Built-in Data Reader|00000000-0000-0000-0000-000000000001|Can read data and metadata.|
+|Cosmos DB Built-in Data Contributor|00000000-0000-0000-0000-000000000002|Can read, write, and delete data.|
+
+### Assign Storage Queue Contributor role
+
+1. Create the Role Assignment
+
+```sh
+az role assignment create \
+  --assignee <PRINCIPAL_ID> \
+  --role "Storage Queue Data Contributor" \
+  --scope /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/rg-learn-webhook
 ```
 
 ---
