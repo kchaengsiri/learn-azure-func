@@ -119,6 +119,14 @@ az functionapp function keys list \
 az functionapp keys list --query masterKey
 ```
 
+**Get `APPLICATIONINSIGHTS_CONNECTION_STRING`**
+
+```sh
+az monitor app-insights component show \
+ --query "[0].connectionString" \
+ --output tsv
+```
+
 ---
 
 ### Cosmos DB
