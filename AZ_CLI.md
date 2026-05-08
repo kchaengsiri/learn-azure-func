@@ -127,11 +127,37 @@ az monitor app-insights component show \
  --output tsv
 ```
 
+**Delete Application Insights**
+
+```sh
+az monitor app-insights component delete
+  --app "$APP_INSIGHTS" \
+  --resource-group "$RESOURCE_GROUP"
+```
+
+---
+
+### Key ![alt text](image.png)Vault
+
+**Register the KeyVault provider**
+
+```sh
+az provider register --namespace Microsoft.KeyVault
+```
+
+**Check register status**
+
+```sh
+az provider show \
+  --namespace Microsoft.KeyVault \
+  --query "registrationState"
+```
+
 ---
 
 ### Cosmos DB
 
-0. **Register the Cosmos DB provider** [OPTIONAL]
+0. **Register the Cosmos DB provider**
 
    ```sh
    az provider register --namespace Microsoft.DocumentDB
@@ -206,6 +232,13 @@ az monitor app-insights component show \
    }
    ```
 
+6. *Optional* DELETE Cosmos DB:
+
+   ```sh
+   az cosmosdb delete \
+     --name db-learn-webhook \
+     --resource-group rg-learn-webhook
+   ```
 ---
 
 ### Storage Queues (The Simple Route)
@@ -285,6 +318,14 @@ az servicebus topic subscription create \
   --resource-group rg-learn-webhook \
   --namespace-name sb-game-learn-webhook \
   --topic-name learn-webhook-topic
+```
+
+**Delete Service Bus**
+
+```sh
+az servicebus namespace delete \
+  --name sb-game-learn-webhook \
+  --resource-group rg-learn-webhook
 ```
 
 ### Setting up the Cloud (RBAC)
