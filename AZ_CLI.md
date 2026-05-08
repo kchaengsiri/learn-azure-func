@@ -153,6 +153,23 @@ az provider show \
   --query "registrationState"
 ```
 
+**Granting Key Vault permission to current user**
+
+```sh
+SCOPE_ID=$(
+  az keyvault show \
+    --name "$KEYVAULT_NAME" \
+    --resource-group "$RESOURCE_GROUP" \
+    --query id \
+    --output tsv
+)
+
+az role assignment create \
+  --assignee "$USER_OBJECT_ID" \
+  --role "Key Vault Secrets Officer" \
+  --scope "$SCOPE_ID"
+```
+
 ---
 
 ### Cosmos DB
